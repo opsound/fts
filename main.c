@@ -137,7 +137,7 @@ void parsedom(char *data, long fsize, struct arr *tagstk, struct arr *tags)
 
 	while (ptr < end) {
 		// Replace angle brackets surrounding tags with nulls to
-		// create C-string chunks
+		// create C-strings
 		ptr = strchr(ptr, '<');
 		if (!ptr)
 			break;
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 	assert(nread == (size_t)(fsize - 1));
 
 	// Parse the xml
-	
+
 	struct tag *tag;
 	int *itag;
 
