@@ -124,6 +124,82 @@ void dfs(struct arr *arr, int idx, int indent)
 	dfs(arr, tag->inext, indent);
 }
 
+void parsedom(char *data, long fsize, struct arr *tagstk, struct arr *tags)
+{
+	struct tag *tag;
+	int *itag;
+	char *ptr = &data[0];
+	char *end = &data[fsize];
+	char *tbegin;
+	char *tend;
+	char *space;
+	char *skippush;
+
+	while (ptr < end) {
+		// Replace angle brackets surrounding tags with nulls to
+		// create C-string chunks
+		ptr = strchr(ptr, '<');
+		if (!ptr)
+			break;
+
+		*ptr = '\0';
+		tbegin = ptr + 1;
+		assert((tbegin < end) && *tbegin);
+
+		tend = strchr(tbegin, '>');
+		assert(((tend - tbegin) >= 1) && (tend < end) && *tend);
+
+		*tend = '\0';
+		ptr = tend + 1;
+
+		if (*tbegin == '/') {
+			tbegin++;
+			assert((tbegin < end) && *tbegin);
+
+			itag = apop(tagstk);
+			assert(itag);
+			tag = aat(tags, *itag);
+
+			if (strcmp(tag->tag, tbegin) != 0) {
+				fprintf(stderr, "xml malformed\n");
+				fprintf(stderr, "%s %s %s\n", tag->tag, tbegin,
+					tag->val);
+				exit(-EINVAL);
+			}
+		} else {
+			// New tag we are adding to the array
+			tag = tagpush(tags);
+			assert(tag);
+
+			tag->tag = tbegin;
+			if (ptr < end)
+				tag->val = ptr;
+
+			// detects <tagname /> (a non-paired tag)
+			skippush = strchr(tbegin, '/');
+
+			// detect tag params <tagname params=42>
+			space = strchr(tbegin, ' ');
+			if (space) {
+				*space = '\0';
+				tag->arg = space + 1;
+			}
+
+			// Parent of new tag
+			itag = aend(tagstk);
+			assert(itag);
+
+			addchild(aat(tags, *itag), tag, tags);
+
+			if (!skippush) {
+				itag = apush(tagstk);
+				assert(itag);
+				*itag = aidx(tags, tag);
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	long rv, fsize;
@@ -158,21 +234,15 @@ int main(int argc, char **argv)
 	assert(nread == (size_t)(fsize - 1));
 
 	// Parse the xml
+	
+	struct tag *tag;
+	int *itag;
 
 	struct arr tagstk;
 	ainit(&tagstk, 8, sizeof(int));
 
 	struct arr tags;
 	ainit(&tags, 8, sizeof(struct tag));
-
-	struct tag *tag;
-	int *itag;
-	char *ptr = &data[0];
-	char *end = &data[fsize];
-	char *tbegin;
-	char *tend;
-	char *space;
-	char *skippush;
 
 	// Push a root tag so that we can maintain the invariant that all
 	// tags that we parse have a parent.
@@ -182,69 +252,7 @@ int main(int argc, char **argv)
 	assert(itag);
 	*itag = aidx(&tags, tag);
 
-	while (ptr < end) {
-		// Replace angle brackets surrounding tags with nulls to
-		// create C-string chunks
-		ptr = strchr(ptr, '<');
-		if (!ptr)
-			break;
-
-		*ptr = '\0';
-		tbegin = ptr + 1;
-		assert((tbegin < end) && *tbegin);
-
-		tend = strchr(tbegin, '>');
-		assert(((tend - tbegin) >= 1) && (tend < end) && *tend);
-
-		*tend = '\0';
-		ptr = tend + 1;
-
-		if (*tbegin == '/') {
-			tbegin++;
-			assert((tbegin < end) && *tbegin);
-
-			itag = apop(&tagstk);
-			assert(itag);
-			tag = aat(&tags, *itag);
-
-			if (strcmp(tag->tag, tbegin) != 0) {
-				fprintf(stderr, "xml malformed\n");
-				fprintf(stderr, "%s %s %s\n", tag->tag, tbegin,
-					tag->val);
-				exit(-EINVAL);
-			}
-		} else {
-			// New tag we are adding to the array
-			tag = tagpush(&tags);
-			assert(tag);
-
-			tag->tag = tbegin;
-			if (ptr < end)
-				tag->val = ptr;
-
-			// detects <tagname /> (a non-paired tag)
-			skippush = strchr(tbegin, '/');
-
-			// detect tag params <tagname params=42>
-			space = strchr(tbegin, ' ');
-			if (space) {
-				*space = '\0';
-				tag->arg = space + 1;
-			}
-
-			// Parent of new tag
-			itag = aend(&tagstk);
-			assert(itag);
-
-			addchild(aat(&tags, *itag), tag, &tags);
-
-			if (!skippush) {
-				itag = apush(&tagstk);
-				assert(itag);
-				*itag = aidx(&tags, tag);
-			}
-		}
-	}
+	parsedom(data, fsize, &tagstk, &tags);
 
 	// Start at the first real tag (not the root)
 	dfs(&tags, 1, 0);
