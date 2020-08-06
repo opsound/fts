@@ -116,10 +116,6 @@ void dfs(struct arr *arr, int idx, int indent)
 	if (!tag)
 		return;
 
-	for (int i = 0; i < indent; i++)
-		putchar(' ');
-	printf("%s <%s>\n", tag->tag, isspace(tag->val[0]) ? "" : tag->val);
-
 	dfs(arr, tag->ichildren, indent + 2);
 	dfs(arr, tag->inext, indent);
 }
