@@ -10,17 +10,17 @@ struct doc {
 	const char *title;
 	const char *url;
 	const char *text;
-	int id;
+	int64_t id;
 };
 
 struct arr {
 	char *items;
-	int itemsz;
-	int i;
-	int n;
+	int32_t itemsz;
+	int64_t i;
+	int64_t n;
 };
 
-void aresize(struct arr *arr, int n)
+void aresize(struct arr *arr, int64_t n)
 {
 	if (arr->n >= n)
 		return;
@@ -29,21 +29,21 @@ void aresize(struct arr *arr, int n)
 	assert(arr->items);
 }
 
-void ainit(struct arr *arr, int n, int itemsz)
+void ainit(struct arr *arr, int64_t n, int32_t itemsz)
 {
 	memset(arr, 0, sizeof(*arr));
 	arr->itemsz = itemsz;
 	aresize(arr, n);
 }
 
-void *aat(struct arr *arr, int idx)
+void *aat(struct arr *arr, int64_t idx)
 {
 	if (idx < 0 || idx >= arr->i)
 		return NULL;
 	return &arr->items[idx * arr->itemsz];
 }
 
-int aidx(struct arr *arr, void *item)
+int64_t aidx(struct arr *arr, void *item)
 {
 	return ((char *)item - &arr->items[0]) / arr->itemsz;
 }
@@ -75,9 +75,9 @@ struct tag {
 	const char *arg;
 	const char *val;
 
-	int ichildren;
-	int ilastchild;
-	int inext;
+	int64_t ichildren;
+	int64_t ilastchild;
+	int64_t inext;
 };
 
 struct tag *tagpush(struct arr *arr)
@@ -91,7 +91,7 @@ struct tag *tagpush(struct arr *arr)
 
 void addchild(struct tag *parent, struct tag *child, struct arr *arr)
 {
-	int ichild = aidx(arr, child);
+	int64_t ichild = aidx(arr, child);
 
 	// Add the only child
 	if (parent->ichildren < 0) {
@@ -110,13 +110,13 @@ void addchild(struct tag *parent, struct tag *child, struct arr *arr)
 	sib->inext = ichild;
 }
 
-void dfs(struct arr *arr, int idx, int indent)
+void dfs(struct arr *arr, int64_t idx, int32_t indent)
 {
 	struct tag *tag = aat(arr, idx);
 	if (!tag)
 		return;
 
-	for (int i = 0; i < indent; i++)
+	for (int32_t i = 0; i < indent; i++)
 		putchar(' ');
 	printf("%s <%s>\n", tag->tag, isspace(tag->val[0]) ? "" : tag->val);
 
@@ -127,7 +127,7 @@ void dfs(struct arr *arr, int idx, int indent)
 void parsedom(char *data, long fsize, struct arr *tagstk, struct arr *tags)
 {
 	struct tag *tag;
-	int *itag;
+	int64_t *itag;
 	char *ptr = &data[0];
 	char *end = &data[fsize];
 	char *tbegin;
@@ -200,6 +200,20 @@ void parsedom(char *data, long fsize, struct arr *tagstk, struct arr *tags)
 	}
 }
 
+int64_t hash(const char *str)
+{
+	int32_t p = 31;
+	int32_t m = 1e9 + 9;
+	int64_t hash_value = 0;
+	int64_t p_pow = 1;
+	while (*str) {
+		hash_value = (hash_value + (*str - 'a' + 1) * p_pow) % m;
+		p_pow = (p_pow * p) % m;
+		str++;
+	}
+	return hash_value;
+}
+
 int main(int argc, char **argv)
 {
 	long rv, fsize;
@@ -236,10 +250,10 @@ int main(int argc, char **argv)
 	// Parse the xml
 
 	struct tag *tag;
-	int *itag;
+	int64_t *itag;
 
 	struct arr tagstk;
-	ainit(&tagstk, 8, sizeof(int));
+	ainit(&tagstk, 8, sizeof(int64_t));
 
 	struct arr tags;
 	ainit(&tags, 8, sizeof(struct tag));

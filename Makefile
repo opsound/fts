@@ -1,5 +1,5 @@
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -g
-# CFLAGS += -fsanitize=undefined -fsanitize=address
+CFLAGS += -fsanitize=undefined -fsanitize=address
 # LDFLAGS += -lprofiler -ltcmalloc
 CFLAGS += -O3
 SRCS = main.c
