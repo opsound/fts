@@ -72,7 +72,7 @@ void *apop(struct arr *arr)
 
 struct tag {
 	const char *tag;
-	const char *arg;
+	const char *attr;
 	const char *val;
 
 	int64_t ichildren;
@@ -182,7 +182,7 @@ void parsedom(char *data, long fsize, struct arr *tagstk, struct arr *tags)
 			space = strchr(tbegin, ' ');
 			if (space) {
 				*space = '\0';
-				tag->arg = space + 1;
+				tag->attr = space + 1;
 			}
 
 			// Parent of new tag
