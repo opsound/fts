@@ -72,7 +72,6 @@ void *apopn(struct arr *arr, int64_t n)
 
 struct tag {
 	const char *tag;
-	const char *attr;
 	const char *val;
 
 	int64_t ichildren;
@@ -112,70 +111,19 @@ void addchild(struct tag *parent, struct tag *child, struct arr *arr)
 
 void dfs(struct arr *arr, int64_t idx, int32_t indent)
 {
-	struct tag *tag = aat(arr, idx);
-	if (!tag)
+	if (idx < 0)
 		return;
+
+	struct tag *tag = aat(arr, idx);
 
 	for (int32_t i = 0; i < indent; i++)
 		putchar(' ');
-	printf("%s <%s>\n", tag->tag, isspace(tag->val[0]) ? "" : tag->val);
+	printf("%s <%s>\n", tag->tag,
+	       tag->val ? isspace(tag->val[0]) ? "whitespace" : tag->val : "");
 
 	dfs(arr, tag->ichildren, indent + 2);
 	dfs(arr, tag->inext, indent);
 }
-
-/* void emit_tag_begin(const char* str, int64_t len) */
-/* { */
-
-/* 	// New tag we are adding to the array */
-/* 	tag = tagpush(tags); */
-/* 	assert(tag); */
-
-/* 	tag->tag = tbegin; */
-/* 	if (ptr < end) */
-/* 		tag->val = ptr; */
-
-/* 	// detects <tagname /> (a non-paired tag) */
-/* 	skippush = strchr(tbegin, '/'); */
-
-/* 	// detect tag params <tagname params=42> */
-/* 	space = strchr(tbegin, ' '); */
-/* 	if (space) { */
-/* 		*space = '\0'; */
-/* 		tag->attr = space + 1; */
-/* 	} */
-
-/* 	// Parent of new tag */
-/* 	itag = aend(tagstk); */
-/* 	assert(itag); */
-
-/* 	addchild(aat(tags, *itag), tag, tags); */
-
-/* 	if (!skippush) { */
-/* 		itag = apush(tagstk); */
-/* 		assert(itag); */
-/* 		*itag = aidx(tags, tag); */
-/* 	} */
-/* } */
-
-/* void emit_tag_end(const char* str, int64_t len) */
-/* { */
-/* 	itag = apop(tagstk); */
-/* 	assert(itag); */
-/* 	tag = aat(tags, *itag); */
-
-/* 	if (strcmp(tag->tag, tbegin) != 0) { */
-/* 		fprintf(stderr, "xml malformed\n"); */
-/* 		fprintf(stderr, "%s %s %s\n", tag->tag, tbegin, */
-/* 			tag->val); */
-/* 		exit(-EINVAL); */
-/* 	} */
-/* } */
-
-/* void emit_text(const char* str, int64_t len) */
-/* { */
-
-/* } */
 
 #define TOK_TAG_BEGIN (1 << 0)
 #define TOK_TAG_END (1 << 1)
@@ -199,34 +147,56 @@ const char *tok2str(int tok)
 struct parse_state {
 	struct arr tagstk;
 	struct arr tags;
-	int indent;
 };
 
 void emit(int token, const char *begin, const char *end, void *arg)
 {
+	char *str;
 	struct parse_state *ps = arg;
+	struct tag *tag;
+	struct tag *parent;
+	int64_t *itag;
 	assert(begin <= end);
-
-	printf("%s ", tok2str(token));
-	for (int i = 0; i < ps->indent; i++)
-		putchar(' ');
-	fwrite(begin, 1, end - begin, stdout);
-	putchar('\n');
 
 	switch (token) {
 	case TOK_TAG_BEGIN | TOK_TAG_END:
+		tag = tagpush(&ps->tags);
+		tag->tag = strndup(begin, end - begin);
+		itag = alast(&ps->tagstk);
+		parent = aat(&ps->tags, *itag);
+		addchild(parent, tag, &ps->tags);
 		break;
+
 	case TOK_TAG_BEGIN:
-		ps->indent += 2;
+		tag = tagpush(&ps->tags);
+		tag->tag = strndup(begin, end - begin);
+		itag = alast(&ps->tagstk);
+		parent = aat(&ps->tags, *itag);
+		addchild(parent, tag, &ps->tags);
+		itag = apushn(&ps->tagstk, 1);
+		*itag = aidx(&ps->tags, tag);
 		break;
+
 	case TOK_TAG_END:
-		ps->indent -= 2;
+		itag = apopn(&ps->tagstk, 1);
+		tag = aat(&ps->tags, *itag);
+		str = strndup(begin, end - begin);
+		if (strcmp(tag->tag, str)) {
+			fprintf(stderr,
+				"Error: malformed xml. Opening tag %s does not "
+				"match closing tag %s\n",
+				tag->tag, str);
+			exit(-EINVAL);
+		}
+		free(str);
 		break;
+
 	case TOK_TEXT:
+		itag = alast(&ps->tagstk);
+		tag = aat(&ps->tags, *itag);
+		tag->val = strndup(begin, end - begin);
 		break;
 	}
-
-	assert(ps->indent >= 0);
 }
 
 const char *strchr2(const char *begin, const char *end, char ch)
@@ -243,7 +213,6 @@ typedef void (*emit_t)(int token, const char *begin, const char *end,
 // Returns a pointer to the beginning of un-tokenized input.
 const char *tokenize(const char *begin, const char *end, emit_t emit, void *arg)
 {
-	int tok;
 	const char *tbegin;
 	const char *tend;
 	const char *slash;
@@ -274,13 +243,14 @@ const char *tokenize(const char *begin, const char *end, emit_t emit, void *arg)
 			if (space < tend) {
 				slash = strchr2(space, tend, '/');
 				if (slash < tend)
-					tok = TOK_TAG_BEGIN | TOK_TAG_END;
+					emit(TOK_TAG_BEGIN | TOK_TAG_END,
+					     &tbegin[1], space, arg);
 				else
-					tok = TOK_TAG_BEGIN;
+					emit(TOK_TAG_BEGIN, &tbegin[1], space,
+					     arg);
 			} else {
-				tok = TOK_TAG_BEGIN;
+				emit(TOK_TAG_BEGIN, &tbegin[1], tend, arg);
 			}
-			emit(tok, &tbegin[1], tend, arg);
 		}
 
 		ptr = tend + 1;
@@ -350,24 +320,18 @@ int main(int argc, char **argv)
 	struct parse_state ps;
 	memset(&ps, 0, sizeof(ps));
 
-	/* ainit(&ps.tagstk, 8, sizeof(int64_t)); */
-	/* ainit(&ps.tags, 8, sizeof(struct tag)); */
+	ainit(&ps.tagstk, 8, sizeof(int64_t));
+	ainit(&ps.tags, 8, sizeof(struct tag));
 
-	/* struct tag *tag; */
-	/* int64_t *itag; */
-
-	/* // Push a root tag so that we can maintain the invariant that all */
-	/* // tags that we parse have a parent. */
-	/* tag = tagpush(&ps.tags); */
-	/* assert(tag); */
-	/* itag = apushn(&ps.tagstk, 1); */
-	/* assert(itag); */
-	/* *itag = aidx(&ps.tags, tag); */
+	// Push a root tag so that we can maintain the invariant that all
+	// tags that we parse have a parent.
+	int64_t *itag = apushn(&ps.tagstk, 1);
+	*itag = aidx(&ps.tags, tagpush(&ps.tags));
 
 	process_file(fp, emit, &ps);
 
 	// Start at the first real tag (not the root)
-	/* dfs(&tags, 1, 0); */
+	dfs(&ps.tags, 1, 0);
 
 	return 0;
 }

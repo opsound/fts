@@ -1,10 +1,10 @@
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -g
 CFLAGS += -fsanitize=undefined -fsanitize=address
 CFLAGS += -O3
-# LDFLAGS += -lprofiler
+LDFLAGS += -lprofiler
 LDFLAGS += -ltcmalloc
 SRCS = main.c
-PROFILE_INPUT = enwiki-20200720-abstract.xml
+PROFILE_INPUT = enwiki-latest-abstract1.xml
 
 fts: $(SRCS) Makefile
 	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
