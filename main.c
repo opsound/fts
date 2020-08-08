@@ -165,7 +165,7 @@ void emit(int token, const char *begin, const char *end, void *arg)
 		inode = apopn(&ps->nodestk, 1);
 		node = aat(&ps->nodes, *inode);
 		str = strndup(begin, end - begin);
-		if (strcmp(node->val, str)) {
+		if (node->toktype != TOK_TAG_BEGIN || strcmp(node->val, str)) {
 			fprintf(stderr,
 				"Error: malformed xml. Opening tag %s does not "
 				"match closing tag %s\n",
@@ -174,6 +174,9 @@ void emit(int token, const char *begin, const char *end, void *arg)
 		}
 		free(str);
 		break;
+
+	default:
+		assert(0 && "Bad token");
 	}
 }
 
