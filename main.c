@@ -70,13 +70,18 @@ void *apopn(struct arr *arr, int64_t n)
 	return aend(arr);
 }
 
+#define TOK_TAG_BEGIN (1 << 0)
+#define TOK_TAG_END (1 << 1)
+#define TOK_TEXT (1 << 2)
+
 struct tag {
-	const char *tag;
 	const char *val;
 
 	int64_t ichildren;
 	int64_t ilastchild;
 	int64_t inext;
+
+	int toktype;
 };
 
 struct tag *tagpush(struct arr *arr)
@@ -117,16 +122,14 @@ void dfs(struct arr *arr, int64_t idx, int32_t indent)
 
 	for (int32_t i = 0; i < indent; i++)
 		putchar(' ');
-	printf("%s <%s>\n", tag->tag,
-	       tag->val ? isspace(tag->val[0]) ? "whitespace" : tag->val : "");
+	if (tag->toktype & TOK_TAG_BEGIN)
+		printf("<%s>\n", tag->val);
+	else
+		printf("%s\n", tag->val);
 
 	dfs(arr, tag->ichildren, indent + 2);
 	dfs(arr, tag->inext, indent);
 }
-
-#define TOK_TAG_BEGIN (1 << 0)
-#define TOK_TAG_END (1 << 1)
-#define TOK_TEXT (1 << 2)
 
 struct parse_state {
 	struct arr tagstk;
@@ -145,7 +148,8 @@ void emit(int token, const char *begin, const char *end, void *arg)
 	switch (token) {
 	case TOK_TAG_BEGIN | TOK_TAG_END:
 		tag = tagpush(&ps->tags);
-		tag->tag = strndup(begin, end - begin);
+		tag->val = strndup(begin, end - begin);
+		tag->toktype = token;
 		itag = alast(&ps->tagstk);
 		parent = aat(&ps->tags, *itag);
 		addchild(parent, tag, &ps->tags);
@@ -153,7 +157,8 @@ void emit(int token, const char *begin, const char *end, void *arg)
 
 	case TOK_TAG_BEGIN:
 		tag = tagpush(&ps->tags);
-		tag->tag = strndup(begin, end - begin);
+		tag->val = strndup(begin, end - begin);
+		tag->toktype = token;
 		itag = alast(&ps->tagstk);
 		parent = aat(&ps->tags, *itag);
 		addchild(parent, tag, &ps->tags);
@@ -165,20 +170,23 @@ void emit(int token, const char *begin, const char *end, void *arg)
 		itag = apopn(&ps->tagstk, 1);
 		tag = aat(&ps->tags, *itag);
 		str = strndup(begin, end - begin);
-		if (strcmp(tag->tag, str)) {
+		if (strcmp(tag->val, str)) {
 			fprintf(stderr,
 				"Error: malformed xml. Opening tag %s does not "
 				"match closing tag %s\n",
-				tag->tag, str);
+				tag->val, str);
 			exit(-EINVAL);
 		}
 		free(str);
 		break;
 
 	case TOK_TEXT:
-		itag = alast(&ps->tagstk);
-		tag = aat(&ps->tags, *itag);
+		tag = tagpush(&ps->tags);
 		tag->val = strndup(begin, end - begin);
+		tag->toktype = token;
+		itag = alast(&ps->tagstk);
+		parent = aat(&ps->tags, *itag);
+		addchild(parent, tag, &ps->tags);
 		break;
 	}
 }
