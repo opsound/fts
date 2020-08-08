@@ -1,15 +1,6 @@
 # fts
 Full text search experiments
 
-We can currently tokenize the [Wikipedia abstract dump](https://dumps.wikimedia.org/enwiki/20200720/enwiki-20200720-abstract.xml.gz) at 1.2 GiB/s on a 2019 MBP 2.4 GHz 8-Core Intel Core i9.
-```
-~/fts master* ⇡
-❯ ls -l enwiki-20200720-abstract.xml
--rw-r--r--@ 1 amastro  staff  6072016532 Aug  6 21:42 enwiki-20200720-abstract.xml
+We can currently tokenize a 5.6 GiB [Wikipedia abstract dump](https://dumps.wikimedia.org/enwiki/20200720/enwiki-20200720-abstract.xml.gz) in 5.6 s at 1.0 GiB/s on a 2019 MBP 2.4 GHz 8-Core Intel Core i9. Tokenizing the .xml input uses memory proportional to the longest span of text within or between tags. In this instance, we use ~8 KiB to tokenize the file.
 
-~/fts master* ⇡
-❯ make && time ./fts enwiki-20200720-abstract.xml
-cc -std=c11 -Wall -Wextra -Wpedantic -g -O3 main.c -o fts
-./fts enwiki-20200720-abstract.xml  4.54s user 0.96s system 97% cpu 5.625 total
-```
-Tokenizing the .xml input uses memory proportional to the largest span of text within or between tags. In this instance, we use ~8 KiB at most to tokenize the 5.6 GiB file.
+Tokenizing and constructing the DOM tree in memory takes 40 s at ~140 MiB/s. The memory used is proportional to the size of the document itself: ~20 GiB here. This is due to the fact that each node in the tree has an overhead of 40 B, and also contains a copy of its data (tag name or text) from the original document. There's opportunity for improvement here.
