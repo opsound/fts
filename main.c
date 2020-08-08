@@ -129,7 +129,8 @@ struct parse_state {
 	struct arr nodes;
 };
 
-void emit(int token, const char *begin, const char *end, void *arg)
+void emit(int64_t fpos, int token, const char *begin, const char *end,
+	  void *arg)
 {
 	char *str;
 	struct parse_state *ps = arg;
@@ -180,12 +181,13 @@ const char *strchr2(const char *begin, const char *end, char ch)
 	return begin;
 }
 
-typedef void (*emit_t)(int token, const char *begin, const char *end,
-		       void *arg);
+typedef void (*emit_t)(int64_t fpos, int token, const char *begin,
+		       const char *end, void *arg);
 
 // Scan the [begin, end) range for tokens, `emit`ing them as they are found.
 // Returns a pointer to the beginning of un-tokenized input.
-const char *tokenize(const char *begin, const char *end, emit_t emit, void *arg)
+const char *tokenize(int64_t fpos, const char *begin, const char *end,
+		     emit_t emit, void *arg)
 {
 	const char *tbegin;
 	const char *tend;
@@ -201,7 +203,7 @@ const char *tokenize(const char *begin, const char *end, emit_t emit, void *arg)
 			break;
 
 		if (tbegin > ptr)
-			emit(TOK_TEXT, ptr, tbegin, arg);
+			emit(fpos + ptr - begin, TOK_TEXT, ptr, tbegin, arg);
 
 		ptr = tbegin;
 
@@ -211,19 +213,23 @@ const char *tokenize(const char *begin, const char *end, emit_t emit, void *arg)
 		assert(tend > (tbegin + 1) && "Illegal tag: <>");
 
 		if (tbegin[1] == '/') {
-			emit(TOK_TAG_END, &tbegin[2], tend, arg);
+			emit(fpos + &tbegin[2] - begin, TOK_TAG_END, &tbegin[2],
+			     tend, arg);
 		} else {
 			space = strchr2(&tbegin[1], tend, ' ');
 			if (space < tend) {
 				slash = strchr2(space, tend, '/');
 				if (slash < tend)
-					emit(TOK_TAG_BEGIN | TOK_TAG_END,
+					emit(fpos + &tbegin[1] - begin,
+					     TOK_TAG_BEGIN | TOK_TAG_END,
 					     &tbegin[1], space, arg);
 				else
-					emit(TOK_TAG_BEGIN, &tbegin[1], space,
+					emit(fpos + &tbegin[1] - begin,
+					     TOK_TAG_BEGIN, &tbegin[1], space,
 					     arg);
 			} else {
-				emit(TOK_TAG_BEGIN, &tbegin[1], tend, arg);
+				emit(fpos + &tbegin[1] - begin, TOK_TAG_BEGIN,
+				     &tbegin[1], tend, arg);
 			}
 		}
 
@@ -239,6 +245,7 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 	int64_t toread;
 	int64_t untokenized;
 	int64_t tokenized;
+	int64_t fpos;
 	struct arr buf;
 	char *dst;
 	const char *ptr;
@@ -247,12 +254,13 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 	toread = 8;
 	ainit(&buf, toread, sizeof(char));
 
+	fpos = ftell(fp);
 	dst = apushn(&buf, toread);
 	nread = fread(dst, 1, toread, fp);
 	apopn(&buf, toread - nread);
 
 	while (nread > 0) {
-		ptr = tokenize(abegin(&buf), aend(&buf), emit, arg);
+		ptr = tokenize(fpos, abegin(&buf), aend(&buf), emit, arg);
 		tokenized = ptr - (char *)abegin(&buf);
 		untokenized = (char *)aend(&buf) - ptr;
 		memmove(abegin(&buf), ptr, untokenized);
@@ -263,6 +271,7 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 		else
 			toread = tokenized;
 
+		fpos = ftell(fp);
 		dst = apushn(&buf, toread);
 		nread = fread(dst, 1, toread, fp);
 		apopn(&buf, toread - nread);
