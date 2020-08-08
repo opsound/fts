@@ -293,6 +293,19 @@ int64_t hash(const char *str)
 	return hash_value;
 }
 
+static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
+
+static void clobber() { __asm__ volatile("" : : : "memory"); }
+
+void donothing(int token, const char *begin, const char *end, void *arg)
+{
+	escape(&token);
+	escape((void *)begin);
+	escape((void *)end);
+	escape(arg);
+	clobber();
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2)
@@ -313,6 +326,7 @@ int main(int argc, char **argv)
 	*itag = aidx(&ps.tags, tagpush(&ps.tags));
 
 	process_file(fp, emit, &ps);
+	/* process_file(fp, donothing, NULL); */
 
 	// Start at the first real tag (not the root)
 	dfs(&ps.tags, 1, 0);
