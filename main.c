@@ -129,9 +129,29 @@ struct parse_state {
 	struct arr nodes;
 };
 
-void emit(int64_t fpos, int token, const char *begin, const char *end,
+struct tokbin {
+	int64_t fpos;
+	int32_t tok;
+	int32_t len;
+};
+
+void write_token(int64_t fpos, int token, const char *begin, const char *end,
 	  void *arg)
 {
+	FILE* fp = arg;
+	struct tokbin tokbin = {
+		.fpos = fpos,
+		.tok = token,
+		.len = end - begin,
+	};
+
+	fwrite(&tokbin, sizeof(tokbin), 1, fp);
+}
+
+void build_dom(int64_t fpos, int token, const char *begin, const char *end,
+	  void *arg)
+{
+	(void)fpos;
 	char *str;
 	struct parse_state *ps = arg;
 	struct node *node;
@@ -310,11 +330,15 @@ int main(int argc, char **argv)
 	int64_t *inode = apushn(&ps.nodestk, 1);
 	*inode = aidx(&ps.nodes, nodepush(&ps.nodes));
 
-	process_file(fp, emit, &ps);
-	/* process_file(fp, donothing, NULL); */
-
+	process_file(fp, build_dom, &ps);
 	// Start at the first real node (not the root)
 	dfs(&ps.nodes, 1, 0);
+
+	/* process_file(fp, donothing, NULL); */
+
+	/* freopen(NULL, "wb", stdout); */
+	/* process_file(fp, write_token, stdout); */
+
 
 	return 0;
 }
