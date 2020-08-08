@@ -102,7 +102,6 @@ void addchild(struct tag *parent, struct tag *child, struct arr *arr)
 
 	// Append to sibling list
 	struct tag *sib = aat(arr, parent->ilastchild);
-	assert(sib);
 	parent->ilastchild = ichild;
 
 	assert(sib->inext < 0);
