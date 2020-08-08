@@ -300,7 +300,7 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 
 static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
 
-static void clobber() { __asm__ volatile("" : : : "memory"); }
+static void clobber(void) { __asm__ volatile("" : : : "memory"); }
 
 void donothing(int64_t fpos, int token, const char *begin, const char *end, void *arg)
 {
