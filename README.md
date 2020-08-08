@@ -1,7 +1,7 @@
 # fts
 Full text search experiments
 
-We can currently tokenize the [Wikipedia abstract dump](https://dumps.wikimedia.org/enwiki/20200720/enwiki-20200720-abstract.xml.gz) at 1.2 GiB/s.
+We can currently tokenize the [Wikipedia abstract dump](https://dumps.wikimedia.org/enwiki/20200720/enwiki-20200720-abstract.xml.gz) at 1.2 GiB/s on a 2019 MBP 2.4 GHz 8-Core Intel Core i9.
 ```
 ~/fts master* ⇡
 ❯ ls -l enwiki-20200720-abstract.xml
