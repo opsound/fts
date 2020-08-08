@@ -74,7 +74,7 @@ void *apopn(struct arr *arr, int64_t n)
 #define TOK_TAG_END (1 << 1)
 #define TOK_TEXT (1 << 2)
 
-struct tag {
+struct node {
 	const char *val;
 
 	int64_t ichildren;
@@ -84,16 +84,16 @@ struct tag {
 	int toktype;
 };
 
-struct tag *tagpush(struct arr *arr)
+struct node *nodepush(struct arr *arr)
 {
-	struct tag *tag = apushn(arr, 1);
-	tag->ichildren = -1;
-	tag->ilastchild = -1;
-	tag->inext = -1;
-	return tag;
+	struct node *node = apushn(arr, 1);
+	node->ichildren = -1;
+	node->ilastchild = -1;
+	node->inext = -1;
+	return node;
 }
 
-void addchild(struct tag *parent, struct tag *child, struct arr *arr)
+void addchild(struct node *parent, struct node *child, struct arr *arr)
 {
 	int64_t ichild = aidx(arr, child);
 
@@ -106,7 +106,7 @@ void addchild(struct tag *parent, struct tag *child, struct arr *arr)
 	}
 
 	// Append to sibling list
-	struct tag *sib = aat(arr, parent->ilastchild);
+	struct node *sib = aat(arr, parent->ilastchild);
 	parent->ilastchild = ichild;
 
 	assert(sib->inext < 0);
@@ -118,75 +118,61 @@ void dfs(struct arr *arr, int64_t idx, int32_t indent)
 	if (idx < 0)
 		return;
 
-	struct tag *tag = aat(arr, idx);
+	struct node *node = aat(arr, idx);
 
 	for (int32_t i = 0; i < indent; i++)
 		putchar(' ');
-	if (tag->toktype & TOK_TAG_BEGIN)
-		printf("<%s>\n", tag->val);
+	if (node->toktype & TOK_TAG_BEGIN)
+		printf("<%s>\n", node->val);
 	else
-		printf("%s\n", tag->val);
+		printf("%s\n", node->val);
 
-	dfs(arr, tag->ichildren, indent + 2);
-	dfs(arr, tag->inext, indent);
+	dfs(arr, node->ichildren, indent + 2);
+	dfs(arr, node->inext, indent);
 }
 
 struct parse_state {
-	struct arr tagstk;
-	struct arr tags;
+	struct arr nodestk;
+	struct arr nodes;
 };
 
 void emit(int token, const char *begin, const char *end, void *arg)
 {
 	char *str;
 	struct parse_state *ps = arg;
-	struct tag *tag;
-	struct tag *parent;
-	int64_t *itag;
+	struct node *node;
+	struct node *parent;
+	int64_t *inode;
 	assert(begin <= end);
 
 	switch (token) {
-	case TOK_TAG_BEGIN | TOK_TAG_END:
-		tag = tagpush(&ps->tags);
-		tag->val = strndup(begin, end - begin);
-		tag->toktype = token;
-		itag = alast(&ps->tagstk);
-		parent = aat(&ps->tags, *itag);
-		addchild(parent, tag, &ps->tags);
-		break;
-
+	case TOK_TEXT:
 	case TOK_TAG_BEGIN:
-		tag = tagpush(&ps->tags);
-		tag->val = strndup(begin, end - begin);
-		tag->toktype = token;
-		itag = alast(&ps->tagstk);
-		parent = aat(&ps->tags, *itag);
-		addchild(parent, tag, &ps->tags);
-		itag = apushn(&ps->tagstk, 1);
-		*itag = aidx(&ps->tags, tag);
+	case TOK_TAG_BEGIN | TOK_TAG_END:
+		node = nodepush(&ps->nodes);
+		node->val = strndup(begin, end - begin);
+		node->toktype = token;
+		inode = alast(&ps->nodestk);
+		parent = aat(&ps->nodes, *inode);
+		addchild(parent, node, &ps->nodes);
+		if (token == TOK_TAG_BEGIN) {
+			inode = apushn(&ps->nodestk, 1);
+			*inode = aidx(&ps->nodes, node);
+		}
 		break;
 
 	case TOK_TAG_END:
-		itag = apopn(&ps->tagstk, 1);
-		tag = aat(&ps->tags, *itag);
+		inode = apopn(&ps->nodestk, 1);
+		node = aat(&ps->nodes, *inode);
 		str = strndup(begin, end - begin);
-		if (strcmp(tag->val, str)) {
+		if (strcmp(node->val, str)) {
 			fprintf(stderr,
 				"Error: malformed xml. Opening tag %s does not "
 				"match closing tag %s\n",
-				tag->val, str);
+				node->val, str);
 			exit(-EINVAL);
 		}
 		free(str);
-		break;
-
-	case TOK_TEXT:
-		tag = tagpush(&ps->tags);
-		tag->val = strndup(begin, end - begin);
-		tag->toktype = token;
-		itag = alast(&ps->tagstk);
-		parent = aat(&ps->tags, *itag);
-		addchild(parent, tag, &ps->tags);
 		break;
 	}
 }
@@ -325,19 +311,19 @@ int main(int argc, char **argv)
 	struct parse_state ps;
 	memset(&ps, 0, sizeof(ps));
 
-	ainit(&ps.tagstk, 8, sizeof(int64_t));
-	ainit(&ps.tags, 8, sizeof(struct tag));
+	ainit(&ps.nodestk, 8, sizeof(int64_t));
+	ainit(&ps.nodes, 8, sizeof(struct node));
 
-	// Push a root tag so that we can maintain the invariant that all
-	// tags that we parse have a parent.
-	int64_t *itag = apushn(&ps.tagstk, 1);
-	*itag = aidx(&ps.tags, tagpush(&ps.tags));
+	// Push a root node so that we can maintain the invariant that all
+	// nodes that we parse have a parent.
+	int64_t *inode = apushn(&ps.nodestk, 1);
+	*inode = aidx(&ps.nodes, nodepush(&ps.nodes));
 
 	process_file(fp, emit, &ps);
 	/* process_file(fp, donothing, NULL); */
 
-	// Start at the first real tag (not the root)
-	dfs(&ps.tags, 1, 0);
+	// Start at the first real node (not the root)
+	dfs(&ps.nodes, 1, 0);
 
 	return 0;
 }
