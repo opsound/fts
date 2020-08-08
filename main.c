@@ -6,13 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct doc {
-	const char *title;
-	const char *url;
-	const char *text;
-	int64_t id;
-};
-
 struct arr {
 	uint8_t *items;
 	int32_t itemsz;
@@ -274,20 +267,6 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 		nread = fread(dst, 1, toread, fp);
 		apopn(&buf, toread - nread);
 	}
-}
-
-int64_t hash(const char *str)
-{
-	int32_t p = 31;
-	int32_t m = 1e9 + 9;
-	int64_t hash_value = 0;
-	int64_t p_pow = 1;
-	while (*str) {
-		hash_value = (hash_value + (*str - 'a' + 1) * p_pow) % m;
-		p_pow = (p_pow * p) % m;
-		str++;
-	}
-	return hash_value;
 }
 
 static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
