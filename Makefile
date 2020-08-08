@@ -12,7 +12,7 @@ fts: $(SRCS) Makefile
 
 .PHONY: profile
 profile: fts $(PROFILE_INPUT)
-	HEAPPROFILE=$(PROFILE_OUTPUT) CPUPROFILE=$(PROFILE_OUTPUT) ./fts $(PROFILE_INPUT)
+	HEAPPROFILE=$(PROFILE_OUTPUT) CPUPROFILE=$(PROFILE_OUTPUT) ./fts bin $(PROFILE_INPUT) > dump
 	~/go/bin/pprof --pdf ./fts $(PROFILE_OUTPUT)
 
 .PHONY: clean

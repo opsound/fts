@@ -302,8 +302,9 @@ static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
 
 static void clobber() { __asm__ volatile("" : : : "memory"); }
 
-void donothing(int token, const char *begin, const char *end, void *arg)
+void donothing(int64_t fpos, int token, const char *begin, const char *end, void *arg)
 {
+	escape(&fpos);
 	escape(&token);
 	escape((void *)begin);
 	escape((void *)end);
@@ -313,32 +314,35 @@ void donothing(int token, const char *begin, const char *end, void *arg)
 
 int main(int argc, char **argv)
 {
-	if (argc != 2)
-		fprintf(stderr, "Usage: fts <doc.xml>\n");
+	if (argc != 3)
+		fprintf(stderr, "Usage: fts <dom,bin,nothing> <doc.xml>\n");
 
-	FILE *fp = fopen(argv[1], "r");
+	char *mode = argv[1];
+
+	FILE *fp = fopen(argv[2], "r");
 	assert(fp);
 
-	struct parse_state ps;
-	memset(&ps, 0, sizeof(ps));
+	if (strcmp(mode, "dom") == 0) {
+		struct parse_state ps;
+		memset(&ps, 0, sizeof(ps));
 
-	ainit(&ps.nodestk, 8, sizeof(int64_t));
-	ainit(&ps.nodes, 8, sizeof(struct node));
+		ainit(&ps.nodestk, 8, sizeof(int64_t));
+		ainit(&ps.nodes, 8, sizeof(struct node));
 
-	// Push a root node so that we can maintain the invariant that all
-	// nodes that we parse have a parent.
-	int64_t *inode = apushn(&ps.nodestk, 1);
-	*inode = aidx(&ps.nodes, nodepush(&ps.nodes));
+		// Push a root node so that we can maintain the invariant that all
+		// nodes that we parse have a parent.
+		int64_t *inode = apushn(&ps.nodestk, 1);
+		*inode = aidx(&ps.nodes, nodepush(&ps.nodes));
 
-	process_file(fp, build_dom, &ps);
-	// Start at the first real node (not the root)
-	dfs(&ps.nodes, 1, 0);
-
-	/* process_file(fp, donothing, NULL); */
-
-	/* freopen(NULL, "wb", stdout); */
-	/* process_file(fp, write_token, stdout); */
-
+		process_file(fp, build_dom, &ps);
+		// Start at the first real node (not the root)
+		dfs(&ps.nodes, 1, 0);
+	} else if (strcmp(mode, "bin") == 0) {
+		freopen(NULL, "wb", stdout);
+		process_file(fp, write_token, stdout);
+	} else if (strcmp(mode, "nothing") == 0) { 
+		process_file(fp, donothing, NULL);
+	}
 
 	return 0;
 }
