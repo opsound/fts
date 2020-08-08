@@ -128,21 +128,6 @@ void dfs(struct arr *arr, int64_t idx, int32_t indent)
 #define TOK_TAG_END (1 << 1)
 #define TOK_TEXT (1 << 2)
 
-const char *tok2str(int tok)
-{
-	switch (tok) {
-	case TOK_TAG_BEGIN | TOK_TAG_END:
-		return "TOK_TAG_BEGIN_END";
-	case TOK_TAG_BEGIN:
-		return "TOK_TAG_BEGIN    ";
-	case TOK_TAG_END:
-		return "TOK_TAG_END      ";
-	case TOK_TEXT:
-		return "TOK_TEXT         ";
-	}
-	return "TOK_UNKNOWN      ";
-}
-
 struct parse_state {
 	struct arr tagstk;
 	struct arr tags;
