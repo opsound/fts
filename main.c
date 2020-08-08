@@ -136,20 +136,20 @@ struct tokbin {
 };
 
 void write_token(int64_t fpos, int token, const char *begin, const char *end,
-	  void *arg)
+		 void *arg)
 {
-	FILE* fp = arg;
+	FILE *fp = arg;
 	struct tokbin tokbin = {
-		.fpos = fpos,
-		.tok = token,
-		.len = end - begin,
+	    .fpos = fpos,
+	    .tok = token,
+	    .len = end - begin,
 	};
 
 	fwrite(&tokbin, sizeof(tokbin), 1, fp);
 }
 
 void build_dom(int64_t fpos, int token, const char *begin, const char *end,
-	  void *arg)
+	       void *arg)
 {
 	(void)fpos;
 	char *str;
@@ -302,7 +302,8 @@ static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
 
 static void clobber(void) { __asm__ volatile("" : : : "memory"); }
 
-void donothing(int64_t fpos, int token, const char *begin, const char *end, void *arg)
+void donothing(int64_t fpos, int token, const char *begin, const char *end,
+	       void *arg)
 {
 	escape(&fpos);
 	escape(&token);
@@ -329,8 +330,8 @@ int main(int argc, char **argv)
 		ainit(&ps.nodestk, 8, sizeof(int64_t));
 		ainit(&ps.nodes, 8, sizeof(struct node));
 
-		// Push a root node so that we can maintain the invariant that all
-		// nodes that we parse have a parent.
+		// Push a root node so that we can maintain the invariant that
+		// all nodes that we parse have a parent.
 		int64_t *inode = apushn(&ps.nodestk, 1);
 		*inode = aidx(&ps.nodes, nodepush(&ps.nodes));
 
@@ -340,7 +341,7 @@ int main(int argc, char **argv)
 	} else if (strcmp(mode, "bin") == 0) {
 		freopen(NULL, "wb", stdout);
 		process_file(fp, write_token, stdout);
-	} else if (strcmp(mode, "nothing") == 0) { 
+	} else if (strcmp(mode, "nothing") == 0) {
 		process_file(fp, donothing, NULL);
 	}
 
