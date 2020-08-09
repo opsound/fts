@@ -1,4 +1,4 @@
-CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -g
+CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -g -MMD
 CFLAGS += -fsanitize=undefined -fsanitize=address
 CFLAGS += -O3
 LDFLAGS += -lprofiler
@@ -15,6 +15,8 @@ parse: parse.c Makefile | format
 tokenize: tokenize.c Makefile | format
 	$(CC) $(CFLAGS) tokenize.c -o $@ $(LDFLAGS)
 
+-include parse.d tokenize.d
+
 .PHONY: profile
 profile: tokenize $(PROFILE_INPUT)
 	HEAPPROFILE=$(PROFILE_OUTPUT) CPUPROFILE=$(PROFILE_OUTPUT) ./tokenize bin $(PROFILE_INPUT) > dump
@@ -22,7 +24,7 @@ profile: tokenize $(PROFILE_INPUT)
 
 .PHONY: clean
 clean:
-	rm -f tokenize
+	rm -rf tokenize parse *.d *.dSYM
 
 .PHONY: format
 format:
