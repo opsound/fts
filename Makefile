@@ -3,18 +3,27 @@ CFLAGS += -fsanitize=undefined -fsanitize=address
 CFLAGS += -O3
 LDFLAGS += -lprofiler
 LDFLAGS += -ltcmalloc
-SRCS = main.c
 PROFILE_INPUT = enwiki-latest-abstract1.xml
 PROFILE_OUTPUT = /tmp/prof.out
 
-fts: $(SRCS) Makefile
-	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
+.PHONY: all
+all: parse tokenize
+
+parse: parse.c Makefile | format
+	$(CC) $(CFLAGS) parse.c -o $@ $(LDFLAGS)
+
+tokenize: tokenize.c Makefile | format
+	$(CC) $(CFLAGS) tokenize.c -o $@ $(LDFLAGS)
 
 .PHONY: profile
-profile: fts $(PROFILE_INPUT)
-	HEAPPROFILE=$(PROFILE_OUTPUT) CPUPROFILE=$(PROFILE_OUTPUT) ./fts bin $(PROFILE_INPUT) > dump
-	~/go/bin/pprof --pdf ./fts $(PROFILE_OUTPUT)
+profile: tokenize $(PROFILE_INPUT)
+	HEAPPROFILE=$(PROFILE_OUTPUT) CPUPROFILE=$(PROFILE_OUTPUT) ./tokenize bin $(PROFILE_INPUT) > dump
+	~/go/bin/pprof --pdf ./tokenize $(PROFILE_OUTPUT)
 
 .PHONY: clean
 clean:
-	rm -f fts
+	rm -f tokenize
+
+.PHONY: format
+format:
+	fd -e c -e h | xargs clang-format -i
