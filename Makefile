@@ -1,4 +1,4 @@
-CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -g -MMD
+CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -g -MMD -flto
 CFLAGS += -fsanitize=undefined -fsanitize=address
 CFLAGS += -O3
 LDFLAGS += -lprofiler
