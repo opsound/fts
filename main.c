@@ -140,14 +140,12 @@ void dfs(struct arr *arr, int64_t idx, int32_t indent)
 void write_token(int64_t fpos, int token, const char *begin, const char *end,
 		 void *arg)
 {
-	FILE *fp = arg;
 	struct tokbin tokbin = {
 	    .fpos = fpos,
 	    .tok = token,
 	    .len = end - begin,
 	};
-
-	fwrite(&tokbin, sizeof(tokbin), 1, fp);
+	fwrite(&tokbin, sizeof(tokbin), 1, (FILE *)arg);
 }
 
 void build_dom(int64_t fpos, int token, const char *begin, const char *end,
