@@ -7,7 +7,7 @@ SRCS = main.c
 PROFILE_INPUT = enwiki-latest-abstract1.xml
 PROFILE_OUTPUT = /tmp/prof.out
 
-fts: $(SRCS) Makefile
+fts: $(SRCS) Makefile | format
 	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
 
 .PHONY: profile
@@ -17,4 +17,8 @@ profile: fts $(PROFILE_INPUT)
 
 .PHONY: clean
 clean:
-	rm -f fts
+	rm -rf fts *.dSYM
+
+.PHONY: format
+format:
+	fd -e c -e h | xargs clang-format -i
