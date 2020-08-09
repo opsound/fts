@@ -10,12 +10,12 @@ PROFILE_OUTPUT = /tmp/prof.out
 all: parse tokenize
 
 parse: parse.c Makefile | format
-	$(CC) $(CFLAGS) parse.c -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) parse.c shared.c -o $@ $(LDFLAGS)
 
 tokenize: tokenize.c Makefile | format
-	$(CC) $(CFLAGS) tokenize.c -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) tokenize.c shared.c -o $@ $(LDFLAGS)
 
--include parse.d tokenize.d
+-include parse.d tokenize.d shared.d
 
 .PHONY: profile
 profile: tokenize $(PROFILE_INPUT)

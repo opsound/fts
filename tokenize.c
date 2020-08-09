@@ -7,68 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct node {
-	const char *val;
-
-	int64_t ichildren;
-	int64_t ilastchild;
-	int64_t inext;
-
-	int toktype;
-};
-
-struct node *nodepush(struct arr *arr)
-{
-	struct node *node = apushn(arr, 1);
-	node->ichildren = -1;
-	node->ilastchild = -1;
-	node->inext = -1;
-	return node;
-}
-
-void addchild(struct node *parent, struct node *child, struct arr *arr)
-{
-	int64_t ichild = aidx(arr, child);
-
-	// Add the only child
-	if (parent->ichildren < 0) {
-		assert(parent->ilastchild < 0);
-		parent->ichildren = ichild;
-		parent->ilastchild = ichild;
-		return;
-	}
-
-	// Append to sibling list
-	struct node *sib = aat(arr, parent->ilastchild);
-	parent->ilastchild = ichild;
-
-	assert(sib->inext < 0);
-	sib->inext = ichild;
-}
-
-void dfs(struct arr *arr, int64_t idx, int32_t indent)
-{
-	if (idx < 0)
-		return;
-
-	struct node *node = aat(arr, idx);
-
-	for (int32_t i = 0; i < indent; i++)
-		putchar(' ');
-	if (node->toktype & TOK_TAG_BEGIN)
-		printf("<%s>\n", node->val);
-	else
-		printf("%s\n", node->val);
-
-	dfs(arr, node->ichildren, indent + 2);
-	dfs(arr, node->inext, indent);
-}
-
-struct parse_state {
-	struct arr nodestk;
-	struct arr nodes;
-};
-
 void write_token(int64_t fpos, int token, const char *begin, const char *end,
 		 void *arg)
 {
@@ -80,52 +18,6 @@ void write_token(int64_t fpos, int token, const char *begin, const char *end,
 	};
 
 	fwrite(&tokbin, sizeof(tokbin), 1, fp);
-}
-
-void build_dom(int64_t fpos, int token, const char *begin, const char *end,
-	       void *arg)
-{
-	(void)fpos;
-	char *str;
-	struct parse_state *ps = arg;
-	struct node *node;
-	struct node *parent;
-	int64_t *inode;
-	assert(begin <= end);
-
-	switch (token) {
-	case TOK_TEXT:
-	case TOK_TAG_BEGIN:
-	case TOK_TAG_BEGIN | TOK_TAG_END:
-		node = nodepush(&ps->nodes);
-		node->val = strndup(begin, end - begin);
-		node->toktype = token;
-		inode = alast(&ps->nodestk);
-		parent = aat(&ps->nodes, *inode);
-		addchild(parent, node, &ps->nodes);
-		if (token == TOK_TAG_BEGIN) {
-			inode = apushn(&ps->nodestk, 1);
-			*inode = aidx(&ps->nodes, node);
-		}
-		break;
-
-	case TOK_TAG_END:
-		inode = apopn(&ps->nodestk, 1);
-		node = aat(&ps->nodes, *inode);
-		str = strndup(begin, end - begin);
-		if (node->toktype != TOK_TAG_BEGIN || strcmp(node->val, str)) {
-			fprintf(stderr,
-				"Error: malformed xml. Opening tag %s does not "
-				"match closing tag %s\n",
-				node->val, str);
-			exit(-EINVAL);
-		}
-		free(str);
-		break;
-
-	default:
-		assert(0 && "Bad token");
-	}
 }
 
 const char *strchr2(const char *begin, const char *end, char ch)
@@ -231,10 +123,6 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 		apopn(&buf, toread - nread);
 	}
 }
-
-static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
-
-static void clobber(void) { __asm__ volatile("" : : : "memory"); }
 
 void donothing(int64_t fpos, int token, const char *begin, const char *end,
 	       void *arg)
