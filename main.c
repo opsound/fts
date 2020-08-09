@@ -6,12 +6,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define TOK_TAG_BEGIN (1 << 0)
+#define TOK_TAG_END (1 << 1)
+#define TOK_TEXT (1 << 2)
+
 struct arr {
 	uint8_t *items;
 	int32_t itemsz;
 	int64_t i;
 	int64_t n;
 };
+
+struct node {
+	const char *val;
+	int64_t ichildren;
+	int64_t ilastchild;
+	int64_t inext;
+	int toktype;
+};
+
+struct parse_state {
+	struct arr nodestk;
+	struct arr nodes;
+};
+
+struct tokbin {
+	int64_t fpos;
+	int32_t tok;
+	int32_t len;
+};
+
+static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
+
+static void clobber(void) { __asm__ volatile("" : : : "memory"); }
 
 void aresize(struct arr *arr, int64_t n)
 {
@@ -63,20 +90,6 @@ void *apopn(struct arr *arr, int64_t n)
 	return aend(arr);
 }
 
-#define TOK_TAG_BEGIN (1 << 0)
-#define TOK_TAG_END (1 << 1)
-#define TOK_TEXT (1 << 2)
-
-struct node {
-	const char *val;
-
-	int64_t ichildren;
-	int64_t ilastchild;
-	int64_t inext;
-
-	int toktype;
-};
-
 struct node *nodepush(struct arr *arr)
 {
 	struct node *node = apushn(arr, 1);
@@ -123,17 +136,6 @@ void dfs(struct arr *arr, int64_t idx, int32_t indent)
 	dfs(arr, node->ichildren, indent + 2);
 	dfs(arr, node->inext, indent);
 }
-
-struct parse_state {
-	struct arr nodestk;
-	struct arr nodes;
-};
-
-struct tokbin {
-	int64_t fpos;
-	int32_t tok;
-	int32_t len;
-};
 
 void write_token(int64_t fpos, int token, const char *begin, const char *end,
 		 void *arg)
@@ -298,10 +300,6 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 	}
 }
 
-static void escape(void *p) { __asm__ volatile("" : : "g"(p) : "memory"); }
-
-static void clobber(void) { __asm__ volatile("" : : : "memory"); }
-
 void donothing(int64_t fpos, int token, const char *begin, const char *end,
 	       void *arg)
 {
@@ -316,7 +314,7 @@ void donothing(int64_t fpos, int token, const char *begin, const char *end,
 int main(int argc, char **argv)
 {
 	if (argc != 3)
-		fprintf(stderr, "Usage: fts <dom,bin,nothing> <doc.xml>\n");
+		fprintf(stderr, "Usage: fts <dom,bin,0> <doc.xml>\n");
 
 	char *mode = argv[1];
 
@@ -341,7 +339,7 @@ int main(int argc, char **argv)
 	} else if (strcmp(mode, "bin") == 0) {
 		freopen(NULL, "wb", stdout);
 		process_file(fp, write_token, stdout);
-	} else if (strcmp(mode, "nothing") == 0) {
+	} else if (strcmp(mode, "0") == 0) {
 		process_file(fp, donothing, NULL);
 	}
 
