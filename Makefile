@@ -29,3 +29,7 @@ clean:
 .PHONY: format
 format:
 	fd -e c -e h | xargs clang-format -i
+
+.PHONY: test
+test: parse tokenize
+	./tokenize bin ./good.xml | ./parse ./good.xml > dump

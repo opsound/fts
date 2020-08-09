@@ -10,14 +10,12 @@
 void write_token(int64_t fpos, int token, const char *begin, const char *end,
 		 void *arg)
 {
-	FILE *fp = arg;
 	struct tokbin tokbin = {
 	    .fpos = fpos,
 	    .tok = token,
 	    .len = end - begin,
 	};
-
-	fwrite(&tokbin, sizeof(tokbin), 1, fp);
+	fwrite(&tokbin, sizeof(tokbin), 1, (FILE *)arg);
 }
 
 const char *strchr2(const char *begin, const char *end, char ch)
@@ -35,6 +33,7 @@ typedef void (*emit_t)(int64_t fpos, int token, const char *begin,
 const char *tokenize(int64_t fpos, const char *begin, const char *end,
 		     emit_t emit, void *arg)
 {
+	int64_t tpos;
 	const char *tbegin;
 	const char *tend;
 	const char *slash;
@@ -48,8 +47,10 @@ const char *tokenize(int64_t fpos, const char *begin, const char *end,
 		if (tbegin == end)
 			break;
 
-		if (tbegin > ptr)
-			emit(fpos + ptr - begin, TOK_TEXT, ptr, tbegin, arg);
+		if (tbegin > ptr) {
+			tpos = fpos + (ptr - begin);
+			emit(tpos, TOK_TEXT, ptr, tbegin, arg);
+		}
 
 		ptr = tbegin;
 
@@ -59,23 +60,22 @@ const char *tokenize(int64_t fpos, const char *begin, const char *end,
 		assert(tend > (tbegin + 1) && "Illegal tag: <>");
 
 		if (tbegin[1] == '/') {
-			emit(fpos + &tbegin[2] - begin, TOK_TAG_END, &tbegin[2],
-			     tend, arg);
+			tpos = fpos + (&tbegin[2] - begin);
+			emit(tpos, TOK_TAG_END, &tbegin[2], tend, arg);
 		} else {
+			tpos = fpos + (&tbegin[1] - begin);
 			space = strchr2(&tbegin[1], tend, ' ');
 			if (space < tend) {
 				slash = strchr2(space, tend, '/');
 				if (slash < tend)
-					emit(fpos + &tbegin[1] - begin,
-					     TOK_TAG_BEGIN | TOK_TAG_END,
+					emit(tpos, TOK_TAG_BEGIN | TOK_TAG_END,
 					     &tbegin[1], space, arg);
 				else
-					emit(fpos + &tbegin[1] - begin,
-					     TOK_TAG_BEGIN, &tbegin[1], space,
-					     arg);
+					emit(tpos, TOK_TAG_BEGIN, &tbegin[1],
+					     space, arg);
 			} else {
-				emit(fpos + &tbegin[1] - begin, TOK_TAG_BEGIN,
-				     &tbegin[1], tend, arg);
+				emit(tpos, TOK_TAG_BEGIN, &tbegin[1], tend,
+				     arg);
 			}
 		}
 
@@ -100,7 +100,7 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 	toread = 8;
 	ainit(&buf, toread, sizeof(char));
 
-	fpos = ftell(fp);
+	fpos = 0;
 	dst = apushn(&buf, toread);
 	nread = fread(dst, 1, toread, fp);
 	apopn(&buf, toread - nread);
@@ -111,13 +111,13 @@ void process_file(FILE *fp, emit_t emit, void *arg)
 		untokenized = (char *)aend(&buf) - ptr;
 		memmove(abegin(&buf), ptr, untokenized);
 		apopn(&buf, tokenized);
+		fpos += tokenized;
 
 		if (tokenized == 0)
 			toread = 2 * acount(&buf);
 		else
 			toread = tokenized;
 
-		fpos = ftell(fp);
 		dst = apushn(&buf, toread);
 		nread = fread(dst, 1, toread, fp);
 		apopn(&buf, toread - nread);
@@ -137,8 +137,10 @@ void donothing(int64_t fpos, int token, const char *begin, const char *end,
 
 int main(int argc, char **argv)
 {
-	if (argc != 3)
+	if (argc != 3) {
 		fprintf(stderr, "Usage: fts <dom,bin,nothing> <doc.xml>\n");
+		return -EINVAL;
+	}
 
 	char *mode = argv[1];
 
