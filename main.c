@@ -313,8 +313,10 @@ void donothing(int64_t fpos, int token, const char *begin, const char *end,
 
 int main(int argc, char **argv)
 {
-	if (argc != 3)
+	if (argc != 3) {
 		fprintf(stderr, "Usage: fts <dom,bin,0> <doc.xml>\n");
+		exit(1);
+	}
 
 	char *mode = argv[1];
 
